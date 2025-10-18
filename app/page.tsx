@@ -1,103 +1,193 @@
-import Image from "next/image";
+"use client"
 
-export default function Home() {
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import type { MotivationItem } from '../types';
+import { ItemType } from '../types';
+import Header from '../components/Header';
+import MotivationCard from '../components/MotivationCard';
+import AddItemForm from '../components/AddItemForm';
+import AllItemsList from '../components/AllItemsList';
+
+const useLocalStorage = <T,>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
+  const [storedValue, setStoredValue] = useState<T>(initialValue);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Load from localStorage on mount (client-side only)
+  useEffect(() => {
+    try {
+      const item = window.localStorage.getItem(key);
+      if (item) {
+        setStoredValue(JSON.parse(item));
+      }
+    } catch (error) {
+      console.error('Error loading from localStorage', error);
+    } finally {
+      setIsInitialized(true);
+    }
+  }, [key]);
+
+  // Save to localStorage when value changes
+  useEffect(() => {
+    if (!isInitialized) return; // Don't save until we've loaded initial value
+
+    try {
+      window.localStorage.setItem(key, JSON.stringify(storedValue));
+    } catch (error) {
+      console.error('Error saving to localStorage', error);
+    }
+  }, [key, storedValue, isInitialized]);
+
+  return [storedValue, setStoredValue];
+};
+
+
+const App: React.FC = () => {
+  const [items, setItems] = useLocalStorage<MotivationItem[]>('motivationItems', []);
+  const [currentItem, setCurrentItem] = useState<MotivationItem | null>(null);
+  const [isListVisible, setListVisible] = useState(false);
+  const [isAddFormVisible, setAddFormVisible] = useState(false);
+
+  const selectNextItem = useCallback(() => {
+    if (items.length === 0) {
+      setCurrentItem(null);
+      return;
+    }
+
+    // Ensure scores are at least 1 for the algorithm
+    const validItems = items.map(item => ({ ...item, score: Math.max(item.score, 1) }));
+
+    const totalScore = validItems.reduce((sum, item) => sum + item.score, 0);
+    let randomPoint = Math.random() * totalScore;
+
+    for (const item of validItems) {
+      randomPoint -= item.score;
+      if (randomPoint <= 0) {
+        // To prevent showing the same item twice in a row if there are other options
+        if (items.length > 1 && item.id === currentItem?.id) {
+          // simple re-roll, not perfect but good enough
+          selectNextItem();
+          return;
+        }
+        setCurrentItem(item);
+        return;
+      }
+    }
+
+    // Fallback if something goes wrong
+    if (items.length > 0) {
+      setCurrentItem(items[0]);
+    }
+  }, [items, currentItem]);
+
+  useEffect(() => {
+    if (!currentItem && items.length > 0) {
+      selectNextItem();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, currentItem, selectNextItem]);
+
+  const handleAddItem = (type: ItemType, content: string) => {
+    // Calculate the highest score among existing items to give the new item a fair chance.
+    const maxScore = items.length > 0 ? Math.max(...items.map(item => item.score)) : 0;
+    // New items should start with a score at least as high as the highest existing score, or 10 if it's the first item.
+    const initialScore = Math.max(maxScore, 10);
+
+    const newItem: MotivationItem = {
+      id: Date.now(),
+      type,
+      content,
+      score: initialScore,
+      createdAt: Date.now(),
+    };
+    const updatedItems = [...items, newItem];
+    setItems(updatedItems);
+    // Always show the newly added item immediately.
+    setCurrentItem(newItem);
+    setAddFormVisible(false);
+  };
+
+  const updateItemScore = (itemId: number, scoreChange: number) => {
+    setItems(prevItems =>
+      prevItems.map(item =>
+        item.id === itemId
+          ? { ...item, score: Math.max(1, item.score + scoreChange) } // Ensure score doesn't drop below 1
+          : item
+      )
+    );
+    // Use a short delay to allow state update before selecting next item
+    setTimeout(selectNextItem, 50);
+  };
+
+  const handleLike = () => {
+    if (currentItem) {
+      updateItemScore(currentItem.id, 5);
+    }
+  };
+
+  const handleDislike = () => {
+    if (currentItem) {
+      updateItemScore(currentItem.id, -5);
+    }
+  };
+
+  const handleDeleteItem = (id: number) => {
+    const newItems = items.filter(item => item.id !== id);
+    setItems(newItems);
+    if (currentItem?.id === id) {
+      if (newItems.length > 0) {
+        // Use a short delay to allow state update before selecting next item
+        setTimeout(selectNextItem, 50);
+      } else {
+        setCurrentItem(null);
+      }
+    }
+  };
+
+  const sortedItems = useMemo(() => {
+    return [...items].sort((a, b) => b.createdAt - a.createdAt);
+  }, [items]);
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
+    <div className="min-h-screen bg-zinc-100 font-sans p-4 sm:p-6 lg:p-8 flex flex-col items-center">
+      <Header />
+      <main className="w-full max-w-2xl mx-auto flex-grow flex flex-col items-center justify-center">
+        {currentItem ? (
+          <MotivationCard item={currentItem} onLike={handleLike} onDislike={handleDislike} />
+        ) : (
+          <div className="text-center p-8 bg-white rounded-lg shadow-sm border border-zinc-200">
+            <h2 className="text-2xl font-bold text-zinc-800 mb-2">Welcome to Motivation Boost!</h2>
+            <p className="text-zinc-600">Add a quote, image, or video to get started.</p>
+          </div>
+        )}
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+      <section className="w-full max-w-2xl mx-auto mt-8 text-center flex flex-col items-center gap-4">
+        <button
+          onClick={() => setAddFormVisible(true)}
+          className="px-8 py-3 bg-zinc-900 hover:bg-zinc-700 rounded-full font-semibold text-white transition-colors duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-zinc-500/50 transform hover:scale-105 cursor-pointer"
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Add New Inspiration
+        </button>
+        <button
+          onClick={() => setListVisible(true)}
+          className="text-zinc-500 hover:text-zinc-800 transition-colors duration-200 underline cursor-pointer"
         >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          View All {items.length} Items
+        </button>
+      </section>
+      <AddItemForm
+        isOpen={isAddFormVisible}
+        onClose={() => setAddFormVisible(false)}
+        onAddItem={handleAddItem}
+      />
+      <AllItemsList
+        isOpen={isListVisible}
+        onClose={() => setListVisible(false)}
+        items={sortedItems}
+        onDeleteItem={handleDeleteItem}
+      />
     </div>
   );
-}
+};
+
+export default App;
