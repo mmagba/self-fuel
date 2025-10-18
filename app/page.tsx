@@ -83,7 +83,6 @@ const App: React.FC = () => {
     if (!currentItem && items.length > 0) {
       selectNextItem();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, currentItem, selectNextItem]);
 
   const handleAddItem = (type: ItemType, content: string) => {

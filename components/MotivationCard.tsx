@@ -27,7 +27,7 @@ const MotivationCard: React.FC<MotivationCardProps> = ({ item, onLike, onDislike
             case ItemType.Quote:
                 return (
                     <blockquote className="text-xl md:text-2xl italic text-center p-6 text-zinc-700">
-                        "{item.content}"
+                        &ldquo;{item.content}&rdquo;
                     </blockquote>
                 );
             case ItemType.Image:
