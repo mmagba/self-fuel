@@ -16,7 +16,7 @@ const getYouTubeEmbedUrl = (url: string): string | null => {
     if (match && match[1]) {
         videoId = match[1];
     }
-    return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
+    return videoId ? `https://www.youtube.com/embed/${videoId}?autoplay=1&loop=1&playlist=${videoId}` : null;
 };
 
 
