@@ -7,6 +7,7 @@ import Header from '../components/Header';
 import MotivationCard from '../components/MotivationCard';
 import AddItemForm from '../components/AddItemForm';
 import AllItemsList from '../components/AllItemsList';
+import { supabase } from '../lib/supabaseClient';
 
 const useLocalStorage = <T,>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
   const [storedValue, setStoredValue] = useState<T>(initialValue);
@@ -46,6 +47,48 @@ const App: React.FC = () => {
   const [currentItem, setCurrentItem] = useState<MotivationItem | null>(null);
   const [isListVisible, setListVisible] = useState(false);
   const [isAddFormVisible, setAddFormVisible] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  useEffect(() => {
+    const init = async () => {
+      const { data } = await supabase.auth.getSession();
+      const uid = data.session?.user?.id ?? null;
+      setUserId(uid);
+    };
+    init();
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      const uid = session?.user?.id ?? null;
+      setUserId(uid);
+    });
+    return () => {
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  // Load from Supabase when signed in
+  useEffect(() => {
+    const load = async () => {
+      if (!userId) return;
+      const { data, error } = await supabase
+        .from('items')
+        .select('id, type, content, score, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      if (error) {
+        console.error(error);
+        return;
+      }
+      const loaded: MotivationItem[] = (data ?? []).map(r => ({
+        id: r.id,
+        type: r.type as ItemType,
+        content: r.content,
+        score: r.score,
+        createdAt: new Date(r.created_at as string).getTime(),
+      }));
+      setItems(loaded);
+      setCurrentItem(null);
+    };
+    load();
+  }, [userId]);
 
   const selectNextItem = useCallback(() => {
     if (items.length === 0) {
@@ -85,34 +128,45 @@ const App: React.FC = () => {
     }
   }, [items, currentItem, selectNextItem]);
 
-  const handleAddItem = (type: ItemType, content: string) => {
+  const handleAddItem = async (type: ItemType, content: string) => {
     // Calculate the highest score among existing items to give the new item a fair chance.
     const maxScore = items.length > 0 ? Math.max(...items.map(item => item.score)) : 0;
     // New items should start with a score at least as high as the highest existing score, or 10 if it's the first item.
     const initialScore = Math.max(maxScore, 10);
 
-    const newItem: MotivationItem = {
-      id: Date.now(),
+    let newItem: MotivationItem = {
+      id: `${Date.now()}`,
       type,
       content,
       score: initialScore,
       createdAt: Date.now(),
     };
-    const updatedItems = [...items, newItem];
-    setItems(updatedItems);
+    if (userId) {
+      const { data, error } = await supabase
+        .from('items')
+        .insert({ user_id: userId, type, content, score: initialScore })
+        .select('id, created_at')
+        .single();
+      if (error) {
+        console.error(error);
+      } else if (data) {
+        newItem = { ...newItem, id: data.id, createdAt: new Date(data.created_at).getTime() };
+      }
+    }
+    setItems(prev => [...prev, newItem]);
     // Always show the newly added item immediately.
     setCurrentItem(newItem);
     setAddFormVisible(false);
   };
 
-  const updateItemScore = (itemId: number, scoreChange: number) => {
-    setItems(prevItems =>
-      prevItems.map(item =>
-        item.id === itemId
-          ? { ...item, score: Math.max(1, item.score + scoreChange) } // Ensure score doesn't drop below 1
-          : item
-      )
-    );
+  const updateItemScore = async (itemId: string, scoreChange: number) => {
+    setItems(prevItems => prevItems.map(item => item.id === itemId ? { ...item, score: Math.max(1, item.score + scoreChange) } : item));
+    if (userId) {
+      const item = items.find(i => i.id === itemId);
+      const newScore = Math.max(1, (item?.score ?? 1) + scoreChange);
+      const { error } = await supabase.from('items').update({ score: newScore }).eq('id', itemId).eq('user_id', userId);
+      if (error) console.error(error);
+    }
     // Use a short delay to allow state update before selecting next item
     setTimeout(selectNextItem, 50);
   };
@@ -129,11 +183,14 @@ const App: React.FC = () => {
     }
   };
 
-  const handleDeleteItem = (id: number) => {
-    const newItems = items.filter(item => item.id !== id);
-    setItems(newItems);
+  const handleDeleteItem = async (id: string) => {
+    setItems(prev => prev.filter(item => item.id !== id));
+    if (userId) {
+      const { error } = await supabase.from('items').delete().eq('id', id).eq('user_id', userId);
+      if (error) console.error(error);
+    }
     if (currentItem?.id === id) {
-      if (newItems.length > 0) {
+      if (items.length - 1 > 0) {
         // Use a short delay to allow state update before selecting next item
         setTimeout(selectNextItem, 50);
       } else {

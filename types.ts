@@ -6,7 +6,7 @@ export enum ItemType {
 }
 
 export interface MotivationItem {
-  id: number;
+  id: string;
   type: ItemType;
   content: string;
   score: number;

@@ -6,7 +6,7 @@ interface AllItemsListProps {
   isOpen: boolean;
   onClose: () => void;
   items: MotivationItem[];
-  onDeleteItem: (id: number) => void;
+  onDeleteItem: (id: string) => void;
 }
 
 const AllItemsList: React.FC<AllItemsListProps> = ({ isOpen, onClose, items, onDeleteItem }) => {
