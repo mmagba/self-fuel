@@ -9,56 +9,47 @@ import AddItemForm from '../components/AddItemForm';
 import AllItemsList from '../components/AllItemsList';
 import { supabase } from '../lib/supabaseClient';
 
-const useLocalStorage = <T,>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
-  const [storedValue, setStoredValue] = useState<T>(initialValue);
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  // Load from localStorage on mount (client-side only)
-  useEffect(() => {
-    try {
-      const item = window.localStorage.getItem(key);
-      if (item) {
-        setStoredValue(JSON.parse(item));
-      }
-    } catch (error) {
-      console.error('Error loading from localStorage', error);
-    } finally {
-      setIsInitialized(true);
-    }
-  }, [key]);
-
-  // Save to localStorage when value changes
-  useEffect(() => {
-    if (!isInitialized) return; // Don't save until we've loaded initial value
-
-    try {
-      window.localStorage.setItem(key, JSON.stringify(storedValue));
-    } catch (error) {
-      console.error('Error saving to localStorage', error);
-    }
-  }, [key, storedValue, isInitialized]);
-
-  return [storedValue, setStoredValue];
-};
-
-
 const App: React.FC = () => {
-  const [items, setItems] = useLocalStorage<MotivationItem[]>('motivationItems', []);
+  const [items, setItems] = useState<MotivationItem[]>([]);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [currentItem, setCurrentItem] = useState<MotivationItem | null>(null);
   const [isListVisible, setListVisible] = useState(false);
   const [isAddFormVisible, setAddFormVisible] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+
   useEffect(() => {
     const init = async () => {
       const { data } = await supabase.auth.getSession();
       const uid = data.session?.user?.id ?? null;
       setUserId(uid);
+
+      if (!uid) {
+        try {
+          const item = window.localStorage.getItem('motivationItems');
+          if (item) setItems(JSON.parse(item));
+        } catch (error) {
+          console.error('Error loading from localStorage', error);
+        }
+        setIsDataLoaded(true);
+      }
     };
     init();
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       const uid = session?.user?.id ?? null;
       setUserId(uid);
+      if (event === 'SIGNED_OUT') {
+        try {
+          const item = window.localStorage.getItem('motivationItems');
+          if (item) setItems(JSON.parse(item));
+          else setItems([]);
+        } catch (e) {
+          setItems([]);
+        }
+        setCurrentItem(null);
+      }
     });
+
     return () => {
       sub.subscription.unsubscribe();
     };
@@ -86,9 +77,21 @@ const App: React.FC = () => {
       }));
       setItems(loaded);
       setCurrentItem(null);
+      setIsDataLoaded(true);
     };
     load();
   }, [userId]);
+
+  // Save to localStorage when value changes and user is NOT signed in
+  useEffect(() => {
+    if (isDataLoaded && !userId) {
+      try {
+        window.localStorage.setItem('motivationItems', JSON.stringify(items));
+      } catch (error) {
+        console.error('Error saving to localStorage', error);
+      }
+    }
+  }, [items, isDataLoaded, userId]);
 
   const selectNextItem = useCallback(() => {
     if (items.length === 0) {
