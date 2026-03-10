@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
+import Link from 'next/link';
 
 const ResetPasswordPage: React.FC = () => {
     const [password, setPassword] = useState('');
@@ -102,9 +103,9 @@ const ResetPasswordPage: React.FC = () => {
                 )}
 
                 <div className="mt-6 text-center">
-                    <a href="/" className="text-zinc-500 hover:text-zinc-800 transition-colors duration-200 underline text-sm">
+                    <Link href="/" className="text-zinc-500 hover:text-zinc-800 transition-colors duration-200 underline text-sm">
                         Back to Home
-                    </a>
+                    </Link>
                 </div>
             </div>
         </div>

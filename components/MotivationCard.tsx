@@ -3,9 +3,9 @@ import type { MotivationItem } from '../types';
 import { ItemType } from '../types';
 
 interface MotivationCardProps {
-  item: MotivationItem;
-  onLike: () => void;
-  onDislike: () => void;
+    item: MotivationItem;
+    onLike: () => void;
+    onDislike: () => void;
 }
 
 const getYouTubeEmbedUrl = (url: string): string | null => {
@@ -21,7 +21,7 @@ const getYouTubeEmbedUrl = (url: string): string | null => {
 
 
 const MotivationCard: React.FC<MotivationCardProps> = ({ item, onLike, onDislike }) => {
-    
+
     const renderContent = () => {
         switch (item.type) {
             case ItemType.Quote:
@@ -31,11 +31,12 @@ const MotivationCard: React.FC<MotivationCardProps> = ({ item, onLike, onDislike
                     </blockquote>
                 );
             case ItemType.Image:
+                // eslint-disable-next-line @next/next/no-img-element
                 return (
-                    <img 
-                        src={item.content} 
-                        alt="Motivational" 
-                        className="max-h-[60vh] w-auto rounded-lg object-contain" 
+                    <img
+                        src={item.content}
+                        alt="Motivational"
+                        className="max-h-[60vh] w-auto rounded-lg object-contain"
                         onError={(e) => (e.currentTarget.src = 'https://picsum.photos/600/400?grayscale')}
                     />
                 );
@@ -44,11 +45,11 @@ const MotivationCard: React.FC<MotivationCardProps> = ({ item, onLike, onDislike
                 if (embedUrl) {
                     return (
                         <div className="aspect-video w-full">
-                            <iframe 
+                            <iframe
                                 src={embedUrl}
-                                title="YouTube video player" 
-                                frameBorder="0" 
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                title="YouTube video player"
+                                frameBorder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                 allowFullScreen
                                 className="w-full h-full rounded-lg"
                             ></iframe>
@@ -65,7 +66,7 @@ const MotivationCard: React.FC<MotivationCardProps> = ({ item, onLike, onDislike
                 {renderContent()}
             </div>
             <div className="flex items-center gap-4">
-                <button 
+                <button
                     onClick={onDislike}
                     className="group rounded-full p-4 bg-zinc-100 hover:bg-red-100 transition-all duration-200 transform hover:scale-110 cursor-pointer"
                     aria-label="Dislike"
@@ -75,7 +76,7 @@ const MotivationCard: React.FC<MotivationCardProps> = ({ item, onLike, onDislike
                         <line x1="6" y1="6" x2="18" y2="18"></line>
                     </svg>
                 </button>
-                <button 
+                <button
                     onClick={onLike}
                     className="group rounded-full p-4 bg-zinc-100 hover:bg-green-100 transition-all duration-200 transform hover:scale-110 cursor-pointer"
                     aria-label="Like"

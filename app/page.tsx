@@ -43,7 +43,7 @@ const App: React.FC = () => {
           const item = window.localStorage.getItem('motivationItems');
           if (item) setItems(JSON.parse(item));
           else setItems([]);
-        } catch (e) {
+        } catch {
           setItems([]);
         }
         setCurrentItem(null);
