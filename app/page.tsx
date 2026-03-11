@@ -210,13 +210,15 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-zinc-100 font-sans p-4 sm:p-6 lg:p-8 flex flex-col items-center">
       <Header />
       <main className="w-full max-w-2xl mx-auto flex-grow flex flex-col items-center justify-center">
-        {currentItem ? (
-          <MotivationCard item={currentItem} onLike={handleLike} onDislike={handleDislike} />
-        ) : (
-          <div className="text-center p-8 bg-white rounded-lg shadow-sm border border-zinc-200">
-            <h2 className="text-2xl font-bold text-zinc-800 mb-2">Welcome to Motivation Boost!</h2>
-            <p className="text-zinc-600">Add a quote, image, or video to get started.</p>
-          </div>
+        {isDataLoaded && (
+          currentItem ? (
+            <MotivationCard item={currentItem} onLike={handleLike} onDislike={handleDislike} />
+          ) : (
+            <div className="text-center p-8 bg-white rounded-lg shadow-sm border border-zinc-200">
+              <h2 className="text-2xl font-bold text-zinc-800 mb-2">Welcome to Motivation Boost!</h2>
+              <p className="text-zinc-600">Add a quote, image, or video to get started.</p>
+            </div>
+          )
         )}
       </main>
       <section className="w-full max-w-2xl mx-auto mt-8 text-center flex flex-col items-center gap-4">
